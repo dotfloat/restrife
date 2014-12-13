@@ -438,6 +438,7 @@ void NET_WaitForLaunch(void)
 
 extern boolean use3drenderer;
 
+#ifdef _USE_STEAM_
 //
 // haleyjd 20141022: [SVE] Alternate waiting on Steam clients
 //
@@ -540,6 +541,7 @@ void NET_RenderSteamServerStart(void)
 
     I_FinishUpdate();
 }
+#endif
 
 // EOF
 

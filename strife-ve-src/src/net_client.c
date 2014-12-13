@@ -1015,9 +1015,11 @@ boolean NET_CL_Connect(net_addr_t *addr, net_connect_data_t *data)
 
         NET_SV_Run();
 
+#ifdef _USE_STEAM_
         // haleyjd [SVE]: render startup for Steam netgames
         if(net_SteamGame)
             NET_RenderSteamServerStart();
+#endif
 
         // Don't hog the CPU
 

@@ -17,6 +17,7 @@
 //
 
 #include "rb_texture.h"
+#include "i_video.h"
 
 //
 // RB_RoundPowerOfTwo
@@ -261,8 +262,8 @@ void RB_BindFrameBuffer(rbTexture_t *rbTexture)
     
     RB_SetReadBuffer(GL_BACK);
     
-    rbTexture->origwidth   = SDL_GetVideoSurface()->w;
-    rbTexture->origheight  = SDL_GetVideoSurface()->h;
+	rbTexture->origwidth   = screen_width;
+	rbTexture->origheight  = screen_height;
     rbTexture->width       = rbTexture->origwidth;
     rbTexture->height      = rbTexture->origheight;
     
@@ -300,8 +301,8 @@ void RB_BindDepthBuffer(rbTexture_t *rbTexture)
         rbState.textureUnits[unit].currentTexture = rbTexture->texid;
     }
     
-    rbTexture->origwidth   = SDL_GetVideoSurface()->w;
-    rbTexture->origheight  = SDL_GetVideoSurface()->h;
+	rbTexture->origwidth   = screen_width;
+	rbTexture->origheight  = screen_height;
     rbTexture->width       = rbTexture->origwidth;
     rbTexture->height      = rbTexture->origheight;
     

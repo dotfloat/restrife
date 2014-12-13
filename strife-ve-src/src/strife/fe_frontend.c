@@ -52,7 +52,7 @@
 #include "fe_multiplayer.h"
 #include "fe_gamepad.h"
 
-extern int TranslateKey(SDL_keysym *sym);
+extern int TranslateKey(SDL_Keysym *sym);
 
 //
 // State Vars
@@ -102,17 +102,18 @@ void FE_CmdExit(void)
 //
 
 static boolean fe_window_focused;
+extern SDL_Window * window;
 
 void FE_UpdateFocus(void)
 {
-    Uint8 state;
+	Uint32 state;
     static boolean currently_focused = false;
 
     SDL_PumpEvents();
 
-    state = SDL_GetAppState();
+	state = SDL_GetWindowFlags(window);
 
-    fe_window_focused = (state & SDL_APPINPUTFOCUS) && (state & SDL_APPACTIVE);
+	fe_window_focused = (state & SDL_WINDOW_INPUT_FOCUS) && (state & SDL_WINDOW_SHOWN);
 
 #ifdef _USE_STEAM_
     // The above check can still be true even if Steam is eating input, but to
@@ -122,18 +123,7 @@ void FE_UpdateFocus(void)
 #endif
 
     if(currently_focused != fe_window_focused)
-    {
-        if(fe_window_focused)
-        {
-            SDL_Event ev;
-            while(SDL_PollEvent(&ev));
-            SDL_EnableKeyRepeat(
-                SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL
-            );
-        }
-        else
-            SDL_EnableKeyRepeat(0, 0);
-
+	{
         currently_focused = fe_window_focused;
     }
 }
@@ -543,10 +533,10 @@ static void FE_HandleKey(SDL_Event *ev)
         char ch;
 
         // jump to item by first letter
-        if(!ev->key.keysym.unicode || ev->key.keysym.unicode >= 0x7f)
+		if(!ev->key.keysym.sym || ev->key.keysym.sym >= 0x7f)
             return;
 
-        ch = (char)(ev->key.keysym.unicode & 0x7f);
+		ch = (char)(ev->key.keysym.sym & 0x7f);
         ch = tolower(ch);
 
         if(isalnum(ch))
@@ -601,7 +591,7 @@ static void FE_HandleJoyButtons(int joybuttons)
     else if(frontend_state != FE_STATE_MAINMENU)
         return; // no joy input handled here except in main menu state
 
-    for(i = 0; i < NUM_VIRTUAL_BUTTONS + 16; i++)
+	for(i = 0; i < JOY_NUM_BUTTONS + 16; i++)
     {
         if(!(joybuttons & (1 << i)))
             continue;
@@ -667,9 +657,8 @@ static boolean FE_MouseInValueRect(Uint32 mx, Uint32 my, femenuitem_t *item)
 //
 static void FE_TransformCoordinates(Uint16 mx, Uint16 my, Uint32 *sx, Uint32 *sy)
 {
-    SDL_Surface *display = SDL_GetVideoSurface();
-    int w = display->w;
-    int h = display->h;
+	int w = screen_width;
+	int h = screen_height;
     fixed_t aspectRatio = w * FRACUNIT / h;
 
     if(aspectRatio == 4 * FRACUNIT / 3) // nominal
@@ -1030,8 +1019,10 @@ static void FE_Responder(void)
         case SDL_QUIT:
             I_Quit();
             break;
-        case SDL_ACTIVEEVENT:
-            FE_UpdateFocus();
+		case SDL_WINDOWEVENT:
+			if (ev.window.type == SDL_WINDOWEVENT_FOCUS_GAINED ||
+				ev.window.type == SDL_WINDOWEVENT_FOCUS_LOST)
+				FE_UpdateFocus();
             break;
         default:
             break;

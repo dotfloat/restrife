@@ -18,7 +18,6 @@
 
 
 #include "SDL.h"
-#include "SDL_joystick.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,7 +49,7 @@ boolean i_seejoysticks;
 float joystick_sensitivity = 0.005f;
 float joystick_threshold = 10.0f;
 
-static SDL_Joystick *joystick = NULL;
+static SDL_GameController *joystick = NULL;
 
 // Configuration variables:
 
@@ -63,37 +62,31 @@ static boolean joystickInit; // true if SDL subsystem init'd
 
 static int joystick_index = -1;
 
+// Swap left and right sticks for left-handed users.
+
+static int joystick_southpaw = 0;
+
 // Which joystick axis to use for horizontal movement, and whether to
 // invert the direction:
 
-static int joystick_x_axis = 0;
 static int joystick_x_invert = 0;
 
 // Which joystick axis to use for vertical movement, and whether to
 // invert the direction:
 
-static int joystick_y_axis = 1;
 static int joystick_y_invert = 0;
 
 // Which joystick axis to use for strafing?
 
-static int joystick_strafe_axis = -1;
 static int joystick_strafe_invert = 0;
 
 // [SVE] svillarreal - joystick axis for looking
 
-static int joystick_look_axis = -1;
 static int joystick_look_invert = 0;
 
 // [SVE] svillarreal
 
 static int joystick_oldbuttons = 0;
-
-// Virtual to physical button joystick button mapping. By default this
-// is a straight mapping.
-static int joystick_physical_buttons[NUM_VIRTUAL_BUTTONS] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
-};
 
 //
 // I_CloseJoystickDevice
@@ -103,8 +96,8 @@ static int joystick_physical_buttons[NUM_VIRTUAL_BUTTONS] = {
 static void I_CloseJoystickDevice(void)
 {
     if(joystick != NULL)
-    {
-        SDL_JoystickClose(joystick);
+	{
+		SDL_GameControllerClose(joystick);
         joystick = NULL;
     }
 }
@@ -118,7 +111,7 @@ void I_ShutdownJoystick(void)
     I_CloseJoystickDevice();
     if(joystickInit)
     {
-        SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+		SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
     }
 }
 
@@ -160,7 +153,7 @@ void I_InitJoystick(void)
     }
 
     // init subsystem
-    if(SDL_Init(SDL_INIT_JOYSTICK) != 0)
+	if(SDL_Init(SDL_INIT_GAMECONTROLLER) != 0)
     {
         return;
     }
@@ -215,7 +208,7 @@ const char *I_QueryJoystickName(int index)
 {
     if(index >= 0 && index < SDL_NumJoysticks())
     {
-        return SDL_JoystickName(index);
+		return SDL_GameControllerNameForIndex(index);
     }
 
     return NULL;
@@ -260,7 +253,7 @@ void I_ActivateJoystickDevice(int index)
     }
 
     // open the device
-    if(!(joystick = SDL_JoystickOpen(joystick_index)))
+	if(!(joystick = SDL_GameControllerOpen(joystick_index)))
     {
         return;
     }
@@ -269,70 +262,37 @@ void I_ActivateJoystickDevice(int index)
     SDL_JoystickEventState(SDL_ENABLE);
 }
 
-static boolean IsAxisButton(int physbutton)
+// Get the state of the given button.
+static int GetAxisState(int axis, int invert);
+
+static int ReadButtonState(int button)
 {
-    if(IS_BUTTON_AXIS(joystick_x_axis))
-    {
-        if (physbutton == BUTTON_AXIS_NEG(joystick_x_axis)
-         || physbutton == BUTTON_AXIS_POS(joystick_x_axis))
-        {
-            return true;
-        }
-    }
-    if(IS_BUTTON_AXIS(joystick_y_axis))
-    {
-        if (physbutton == BUTTON_AXIS_NEG(joystick_y_axis)
-         || physbutton == BUTTON_AXIS_POS(joystick_y_axis))
-        {
-            return true;
-        }
-    }
-    if(IS_BUTTON_AXIS(joystick_strafe_axis))
-    {
-        if (physbutton == BUTTON_AXIS_NEG(joystick_strafe_axis)
-         || physbutton == BUTTON_AXIS_POS(joystick_strafe_axis))
-        {
-            return true;
-        }
-    }
-    if(IS_BUTTON_AXIS(joystick_look_axis))
-    {
-        if (physbutton == BUTTON_AXIS_NEG(joystick_look_axis)
-         || physbutton == BUTTON_AXIS_POS(joystick_look_axis))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-// Get the state of the given virtual button.
-
-static int ReadButtonState(int vbutton)
-{
-    int physbutton;
+	int axis;
+	int sign;
 
     if(!joystick)
     {
         return 0;
-    }
+	}
 
-    // Map from virtual button to physical (SDL) button.
-    physbutton = joystick_physical_buttons[vbutton];
-
-    // Never read axis buttons as buttons.
-    if(IsAxisButton(physbutton))
+	if(button < 0 || button >= JOY_NUM_PBUTTONS)
     {
         return 0;
-    }
+	}
 
-    if(physbutton < 0 || physbutton >= SDL_JoystickNumButtons(joystick))
-    {
-        return 0;
-    }
+	if(button < JOY_NUM_BUTTONS)
+	{
+		return SDL_GameControllerGetButton(joystick, button);
+	} else if(button <= JOY_PBUTTON_LOOK_RIGHT) {
+		axis = (button - JOY_PBUTTON_MOVE_UP) / 2;
+		sign = ((button - JOY_PBUTTON_MOVE_UP) % 2) * 2 - 1;
 
-    return SDL_JoystickGetButton(joystick, physbutton);
+		return GetAxisState(axis, 0) >= sign * DEAD_ZONE;
+	} else {
+		axis = button - JOY_PBUTTON_LEFTTRIGGER + 4;
+
+		return GetAxisState(axis, 0) >= DEAD_ZONE;
+	}
 }
 
 //
@@ -356,7 +316,7 @@ int I_GetJoystickEventID(void)
     }
 
     // check for button presses
-    for(i = 0; i < NUM_VIRTUAL_BUTTONS; ++i)
+	for(i = 0; i < JOY_NUM_PBUTTONS; ++i)
     {
         if(ReadButtonState(i))
         {
@@ -364,34 +324,14 @@ int I_GetJoystickEventID(void)
         }
     }
 
-    if(SDL_JoystickNumHats(joystick) > 0)
-    {
-        // check for hat state
-        axis = SDL_JoystickGetHat(joystick, 0);
-
-        if(axis != 0)
-        {
-            int j;
-
-            for(j = 0; j < 4; ++j)
-            {
-                if(axis & (1 << j))
-                {
-                    return (NUM_VIRTUAL_BUTTONS + 10 + j);
-                }
-            }
-        }
-    }
-
     // check for axis movement
-    for(i = 0; i < 6; ++i)
-    {
-        if(i >= SDL_JoystickNumAxes(joystick))
-        {
-            break;
-        }
+	for(i = 0; i < JOY_NUM_AXIS; ++i)
+	{
+		int axisNdx = i;
+		if (joystick_southpaw)
+			axisNdx = i ^ 2; // Swap left and right
 
-        axis = SDL_JoystickGetAxis(joystick, i);
+		axis = SDL_GameControllerGetAxis(joystick, axisNdx);
 
         if(axis > DEAD_ZONE*2 || axis < -DEAD_ZONE*2)
         {
@@ -399,28 +339,13 @@ int I_GetJoystickEventID(void)
             if(absaxis > greatest_absaxisvalue)
             {
                 greatest_absaxisvalue = absaxis;
-                greatest_axis         = i;
+				greatest_axis         = axisNdx;
                 greatest_axissign     = (axis > 0) ? 1 : -1;
             }
         }
     }
 
-    if(greatest_axis == -1)
-        return -1;
-    else if(greatest_axis == 5)
-    {
-        if(greatest_axissign > 0)
-            return NUM_VIRTUAL_BUTTONS + 14;
-        else
-            return NUM_VIRTUAL_BUTTONS + 15;
-    }
-    else
-    {
-        if(greatest_axissign > 0)
-            return NUM_VIRTUAL_BUTTONS + greatest_axis;
-        else
-            return NUM_VIRTUAL_BUTTONS + 5 + greatest_axis;
-    }
+	return 0;
 }
 
 //
@@ -442,9 +367,9 @@ int I_GetJoystickAxisID(int *axisvalue)
     }
 
     // check for axis movement
-    for(i = 0; i < SDL_JoystickNumAxes(joystick); ++i)
+	for(i = 0; i < JOY_NUM_AXIS; ++i)
     {
-        axis = SDL_JoystickGetAxis(joystick, i);
+		axis = SDL_GameControllerGetAxis(joystick, i);
 
         if(axis > DEAD_ZONE || axis < -DEAD_ZONE)
         {
@@ -452,7 +377,7 @@ int I_GetJoystickAxisID(int *axisvalue)
             if(absaxis > greatest_absaxisvalue)
             {
                 greatest_absaxisvalue = absaxis;
-                greatest_axis         = i;
+				greatest_axis         = joystick_southpaw ? i ^ 2 : i;
             }
         }
     }
@@ -466,78 +391,16 @@ int I_GetJoystickAxisID(int *axisvalue)
 
 static int GetButtonsState(void)
 {
-    int i;
-    int axis;
+	int i;
     int result;
 
     result = 0;
 
-    for(i = 0; i < NUM_VIRTUAL_BUTTONS; ++i)
+	for(i = 0; i < JOY_NUM_PBUTTONS; ++i)
     {
         if(ReadButtonState(i))
         {
             result |= 1 << i;
-        }
-    }
-
-    // I am going to assume, at most, that the most number of axis a joystick can have is 5
-    for(i = 0; i < 5; ++i)
-    {
-        if(i >= SDL_JoystickNumAxes(joystick))
-        {
-            break;
-        }
-
-        axis = SDL_JoystickGetAxis(joystick, i);
-
-        if(axis > DEAD_ZONE || axis < -DEAD_ZONE)
-        {
-            if(axis > 0)
-            {
-                result |= 1 << (NUM_VIRTUAL_BUTTONS + i);
-            }
-            else
-            {
-                result |= 1 << (NUM_VIRTUAL_BUTTONS + 5 + i);
-            }
-        }
-    }
-
-    // haleyjd: axis 6 is needed for Xbox 360 on Linux 9_9
-    if(SDL_JoystickNumAxes(joystick) >= 6)
-    {
-        axis = SDL_JoystickGetAxis(joystick, 5);
-
-        if(axis > DEAD_ZONE || axis < -DEAD_ZONE)
-        {
-            if(axis > 0)
-            {
-                result |= 1 << (NUM_VIRTUAL_BUTTONS + 14);
-            }
-            else
-            {
-                result |= 1 << (NUM_VIRTUAL_BUTTONS + 15);
-            }
-        }
-    }
-
-    if(SDL_JoystickNumHats(joystick) <= 0)
-    {
-        return result;
-    }
-
-    axis = SDL_JoystickGetHat(joystick, 0);
-
-    if(axis != 0)
-    {
-        int j;
-
-        for(j = 0; j < 4; ++j)
-        {
-            if(axis & (1 << j))
-            {
-                result |= 1 << (NUM_VIRTUAL_BUTTONS + 10 + j);
-            }
         }
     }
 
@@ -552,83 +415,18 @@ static int GetAxisState(int axis, int invert)
 
     // Axis -1 means disabled.
 
-    if(axis < 0)
-    {
-        return 0;
-    }
+	if(axis < 0 || axis >= JOY_NUM_AXIS)
+		return 0;
 
-    // Is this a button axis, or a hat axis?
-    // If so, we need to handle it specially.
+	if(joystick_southpaw)
+		axis ^= 2;
 
-    result = 0;
+	result = SDL_GameControllerGetAxis(joystick, axis);
 
-    if(IS_BUTTON_AXIS(axis))
-    {
-        int button = BUTTON_AXIS_NEG(axis);
+	if (result < DEAD_ZONE && result > -DEAD_ZONE)
+		result = 0;
 
-        if(button >= 0 && button < SDL_JoystickNumButtons(joystick) &&
-            SDL_JoystickGetButton(joystick, button))
-        {
-            result -= 32767;
-        }
-
-        button = BUTTON_AXIS_POS(axis);
-
-        if(button >= 0 && button < SDL_JoystickNumButtons(joystick) &&
-            SDL_JoystickGetButton(joystick, button))
-        {
-            result += 32767;
-        }
-    }
-    else if(IS_HAT_AXIS(axis))
-    {
-        int direction = HAT_AXIS_DIRECTION(axis);
-        int hataxis   = HAT_AXIS_HAT(axis);
-
-        if(hataxis >= 0 && hataxis < SDL_JoystickNumHats(joystick))
-        {
-            int hatval = SDL_JoystickGetHat(joystick, hataxis);
-
-            if (direction == HAT_AXIS_HORIZONTAL)
-            {
-                if ((hatval & SDL_HAT_LEFT) != 0)
-                {
-                    result -= 32767;
-                }
-                else if ((hatval & SDL_HAT_RIGHT) != 0)
-                {
-                    result += 32767;
-                }
-            }
-            else if (direction == HAT_AXIS_VERTICAL)
-            {
-                if ((hatval & SDL_HAT_UP) != 0)
-                {
-                    result -= 32767;
-                }
-                else if ((hatval & SDL_HAT_DOWN) != 0)
-                {
-                    result += 32767;
-                }
-            }
-        }
-    }
-    else if(axis >= 0 && axis < SDL_JoystickNumAxes(joystick))
-    {
-        result = SDL_JoystickGetAxis(joystick, axis);
-
-        if (result < DEAD_ZONE && result > -DEAD_ZONE)
-        {
-            result = 0;
-        }
-    }
-
-    if (invert)
-    {
-        result = -result;
-    }
-
-    return result;
+	return invert ? -result : result;
 }
 
 //
@@ -678,7 +476,7 @@ static void I_JoystickButtonEvent(void)
 
         // check for button press
         bits &= ~joystick_oldbuttons;
-        for(i = 0; i < NUM_VIRTUAL_BUTTONS + 16; ++i)
+		for(i = 0; i < JOY_NUM_PBUTTONS; ++i)
         {
             if(bits & (1 << i))
             {
@@ -694,7 +492,7 @@ static void I_JoystickButtonEvent(void)
 
     // check for button release
     bits &= ~joystick_oldbuttons;
-    for(i = 0; i < NUM_VIRTUAL_BUTTONS + 16; ++i)
+	for(i = 0; i < JOY_NUM_PBUTTONS; ++i)
     {
         if(bits & (1 << i))
         {
@@ -731,10 +529,10 @@ void I_JoystickGetAxes(int *x_axis, int *y_axis, int *s_axis, int *l_axis)
             joystick_threshold = 1.0f;
         }
 
-        *x_axis = GetAxisState(joystick_x_axis, joystick_x_invert);
-        *y_axis = GetAxisState(joystick_y_axis, joystick_y_invert);
-        *s_axis = GetAxisState(joystick_strafe_axis, joystick_strafe_invert);
-        *l_axis = GetAxisState(joystick_look_axis, joystick_look_invert);
+		*x_axis = GetAxisState(JOY_AXIS_LOOK_X, joystick_x_invert);
+		*y_axis = GetAxisState(JOY_AXIS_MOVE_Y, joystick_y_invert);
+		*s_axis = GetAxisState(JOY_AXIS_MOVE_X, joystick_strafe_invert);
+		*l_axis = GetAxisState(JOY_AXIS_LOOK_Y, joystick_look_invert);
     }
 }
 
@@ -766,10 +564,10 @@ void I_UpdateJoystick(void)
 
     if(joystick != NULL)
     {
-        int x = GetAxisState(joystick_x_axis, joystick_x_invert);
-        int y = GetAxisState(joystick_y_axis, joystick_y_invert);
-        int s = GetAxisState(joystick_strafe_axis, joystick_strafe_invert);
-        int l = GetAxisState(joystick_look_axis, joystick_look_invert);
+		int x = GetAxisState(JOY_AXIS_LOOK_X, joystick_x_invert);
+		int y = GetAxisState(JOY_AXIS_MOVE_Y, joystick_y_invert);
+		int s = GetAxisState(JOY_AXIS_MOVE_X, joystick_strafe_invert);
+		int l = GetAxisState(JOY_AXIS_LOOK_Y, joystick_look_invert);
 
         if(x || y || s || l)
         {
@@ -792,26 +590,11 @@ void I_UpdateJoystick(void)
 
 void I_BindJoystickVariables(void)
 {
-    int i;
-
     M_BindVariable("use_joystick",          &usejoystick);
     M_BindVariable("joystick_index",        &joystick_index);
-    M_BindVariable("joystick_x_axis",       &joystick_x_axis);
-    M_BindVariable("joystick_y_axis",       &joystick_y_axis);
-    M_BindVariable("joystick_strafe_axis",  &joystick_strafe_axis);
-    M_BindVariable("joystick_look_axis",    &joystick_look_axis);
-    M_BindVariable("joystick_x_invert",     &joystick_x_invert);
-    M_BindVariable("joystick_y_invert",     &joystick_y_invert);
-    M_BindVariable("joystick_strafe_invert",&joystick_strafe_invert);
-    M_BindVariable("joystick_look_invert",  &joystick_look_invert);
+	M_BindVariable("joystick_southpaw",     &joystick_southpaw);
+	M_BindVariable("joystick_invert",  &joystick_look_invert);
 
     M_BindVariable("joystick_sensitivity",   &joystick_sensitivity);
     M_BindVariable("joystick_threshold",     &joystick_threshold);
-
-    for (i = 0; i < NUM_VIRTUAL_BUTTONS; ++i)
-    {
-        char name[64];
-        M_snprintf(name, sizeof(name), "joystick_physical_button%i", i);
-        M_BindVariable(name, &joystick_physical_buttons[i]);
-    }
 }

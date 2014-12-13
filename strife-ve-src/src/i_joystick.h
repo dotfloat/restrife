@@ -20,46 +20,47 @@
 #ifndef __I_JOYSTICK__
 #define __I_JOYSTICK__
 
-// Number of "virtual" joystick buttons defined in configuration files.
-// This needs to be at least as large as the number of different key
-// bindings supported by the higher-level game code (joyb* variables).
-#define NUM_VIRTUAL_BUTTONS 15
+#define JOY_BUTTON_A 0 // Cross
+#define JOY_BUTTON_B 1 // Circle
+#define JOY_BUTTON_X 2 // Square
+#define JOY_BUTTON_Y 3 // Triangle
+#define JOY_BUTTON_SELECT 4
+#define JOY_BUTTON_HOME 5
+#define JOY_BUTTON_START 6
+#define JOY_BUTTON_MOVESTICK 7
+#define JOY_BUTTON_LOOKSTICK 8
+#define JOY_BUTTON_LEFTSHOULDER 9
+#define JOY_BUTTON_RIGHTSHOULDER 10
+#define JOY_BUTTON_DPAD_UP 11
+#define JOY_BUTTON_DPAD_DOWN 12
+#define JOY_BUTTON_DPAD_LEFT 13
+#define JOY_BUTTON_DPAD_RIGHT 14
+#define JOY_NUM_BUTTONS 15
 
-// If this bit is set in a configuration file axis value, the axis is
-// not actually a joystick axis, but instead is a "button axis". This
-// means that instead of reading an SDL joystick axis, we read the
-// state of two buttons to get the axis value. This is needed for eg.
-// the PS3 SIXAXIS controller, where the D-pad buttons register as
-// buttons, not as two axes.
-#define BUTTON_AXIS 0x10000
+// Pseudo-buttons
+#define JOY_PBUTTON_MOVE_UP 15
+#define JOY_PBUTTON_MOVE_DOWN 16
+#define JOY_PBUTTON_MOVE_LEFT 17
+#define JOY_PBUTTON_MOVE_RIGHT 18
+#define JOY_PBUTTON_LOOK_UP 19
+#define JOY_PBUTTON_LOOK_DOWN 20
+#define JOY_PBUTTON_LOOK_LEFT 21
+#define JOY_PBUTTON_LOOK_RIGHT 22
+#define JOY_PBUTTON_LEFTTRIGGER 23
+#define JOY_PBUTTON_RIGHTTRIGGER 24
+#define JOY_NUM_PBUTTONS 25
 
-// Query whether a given axis value describes a button axis.
-#define IS_BUTTON_AXIS(axis) ((axis) >= 0 && ((axis) & BUTTON_AXIS) != 0)
+#define JOY_AXIS_MOVE_X 0
+#define JOY_AXIS_MOVE_Y 1
+#define JOY_AXIS_LOOK_X 2
+#define JOY_AXIS_LOOK_Y 3
+#define JOY_AXIS_LEFTTRIGGER 4
+#define JOY_AXIS_RIGHTTRIGGER 5
+#define JOY_NUM_AXIS 6
 
-// Get the individual buttons from a button axis value.
-#define BUTTON_AXIS_NEG(axis)  ((axis) & 0xff)
-#define BUTTON_AXIS_POS(axis)  (((axis) >> 8) & 0xff)
-
-// Create a button axis value from two button values.
-#define CREATE_BUTTON_AXIS(neg, pos) (BUTTON_AXIS | (neg) | ((pos) << 8))
-
-// If this bit is set in an axis value, the axis is not actually a
-// joystick axis, but is a "hat" axis. This means that we read (one of)
-// the hats on the joystick.
-#define HAT_AXIS    0x20000
-
-#define IS_HAT_AXIS(axis) ((axis) >= 0 && ((axis) & HAT_AXIS) != 0)
-
-// Get the hat number from a hat axis value.
-#define HAT_AXIS_HAT(axis)         ((axis) & 0xff)
-// Which axis of the hat? (horizonal or vertical)
-#define HAT_AXIS_DIRECTION(axis)   (((axis) >> 8) & 0xff)
-
-#define CREATE_HAT_AXIS(hat, direction) \
-    (HAT_AXIS | (hat) | ((direction) << 8))
-
-#define HAT_AXIS_HORIZONTAL 1
-#define HAT_AXIS_VERTICAL   2
+#define JOY_IS_AXIS(x) ((x) >= JOY_PBUTTON_MOVE_UP && (x) <= JOY_PBUTTON_LOOK_RIGHT)
+#define JOY_IS_MOVE_AXIS(x) ((x) >= JOY_PBUTTON_MOVE_UP && (x) <= JOY_PBUTTON_MOVE_RIGHT)
+#define JOY_IS_LOOK_AXIS(x) ((x) >= JOY_PBUTTON_LOOK_UP && (x) <= JOY_PBUTTON_LOOK_RIGHT)
 
 // [SVE] svillarreal
 extern float joystick_sensitivity;

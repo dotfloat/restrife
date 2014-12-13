@@ -221,7 +221,6 @@ static const weaponorder_t weapon_order_table_back[] = {
 #define SLOWTURNTICS	6 
  
 #define NUMKEYS		512 // [SVE] svillarreal - increased to 512 to account for extra keys
-#define MAX_JOY_BUTTONS     NUM_VIRTUAL_BUTTONS
 
 static boolean  gamekeydown[NUMKEYS]; 
 static int      turnheld;		// for accelerative turning 
@@ -247,7 +246,7 @@ static int      joystrafemove;
 static int      joylookmove;
 
 // [SVE] svillarreal - add by 14 to account for non-joystick buttons
-static boolean  joyarray[MAX_JOY_BUTTONS + 14 + 1];
+static boolean  joyarray[JOY_NUM_BUTTONS + 14 + 1];
 
 static boolean *joybuttons = &joyarray[1];		// allow [-1] 
 static float    joyturnthreshold = 0;

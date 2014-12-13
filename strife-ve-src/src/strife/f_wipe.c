@@ -327,8 +327,8 @@ wipe_ScreenWipe
     {
 	    go = 1;
             // haleyjd 20110629 [STRIFE]: We *must* use a temp buffer here.
-	    wipe_scr = (byte *) Z_Malloc(width*height, PU_STATIC, 0); // DEBUG
-	    //wipe_scr = I_VideoBuffer;
+		wipe_scr = (byte *) Z_Malloc(width*height, PU_STATIC, 0); // DEBUG
+		//wipe_scr = I_VideoBuffer;
 	    (*wipes[wipeno*3])(width, height, ticks);
     }
 

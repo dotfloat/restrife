@@ -939,28 +939,9 @@ const char *FE_ButtonNameForNum(int button)
         }
     }
 
-    if(button >= NUM_VIRTUAL_BUTTONS)
+	if(button >= JOY_NUM_BUTTONS)
     {
-        static const char *axisUp[5]   = { "A0+", "A1+", "A2+", "A3+", "A4+" };
-        static const char *axisDown[5] = { "A0-", "A1-", "A2-", "A3-", "A4-" };
-        static const char *hatPos[4]   = { "HAT UP", "HAT RIGHT", "HAT DOWN", "HAT LEFT" };
-        static const char *axis6UD[2]  = { "A6+", "A6-" };
-        if(button >= NUM_VIRTUAL_BUTTONS && button < NUM_VIRTUAL_BUTTONS + 5)
-        {
-            return axisUp[button - NUM_VIRTUAL_BUTTONS];
-        }
-        if(button >= NUM_VIRTUAL_BUTTONS + 5 && button < NUM_VIRTUAL_BUTTONS + 10)
-        {
-            return axisDown[button - (NUM_VIRTUAL_BUTTONS + 5)];
-        }
-        if(button >= NUM_VIRTUAL_BUTTONS + 10 && button < NUM_VIRTUAL_BUTTONS + 14)
-        {
-            return hatPos[button - (NUM_VIRTUAL_BUTTONS + 10)];
-        }
-        if(button >= NUM_VIRTUAL_BUTTONS + 14 && button < NUM_VIRTUAL_BUTTONS + 16)
-        {
-            return axis6UD[button - (NUM_VIRTUAL_BUTTONS + 14)];
-        }
+		return "STUB";
     }
 
     M_Itoa(button, tempName, 10);

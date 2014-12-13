@@ -33,6 +33,8 @@ static SDL_Surface *hr_screen = NULL;
 static SDL_Surface *hr_surface = NULL;
 static char *window_title = "";
 
+extern SDL_Window *window;
+
 boolean I_SetVideoModeHR(void)
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -40,7 +42,7 @@ boolean I_SetVideoModeHR(void)
         return false;
     }
 
-    SDL_WM_SetCaption(window_title,  NULL);
+	SDL_SetWindowTitle(window, window_title);
 
     // Create screen surface at the native desktop pixel depth (bpp=0),
     // as we cannot trust true 8-bit to reliably work nowadays.

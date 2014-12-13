@@ -127,7 +127,7 @@ void R_DrawColumn (void)
     // Framebuffer destination address.
     // Use ylookup LUT to avoid multiply with ScreenWidth.
     // Use columnofs LUT for subwindows? 
-    dest = ylookup[dc_yl] + columnofs[dc_x];  
+	dest = ylookup[dc_yl] + columnofs[dc_x];
 
     // Determine scaling,
     //  which is the only mapping to be done.
@@ -795,8 +795,8 @@ R_InitBuffer
 	viewwindowy = (SCREENHEIGHT-SBARHEIGHT-height) >> 1; 
 
     // Preclaculate all row offsets.
-    for (i=0 ; i<height ; i++) 
-	ylookup[i] = I_VideoBuffer + (i+viewwindowy)*SCREENWIDTH; 
+	for (i=0 ; i<height ; i++)
+		ylookup[i] = I_VideoBuffer + (i+viewwindowy)*SCREENWIDTH;
 } 
  
  
@@ -925,7 +925,7 @@ R_VideoErase
 
     if (background_buffer != NULL)
     {
-        memcpy(I_VideoBuffer + ofs, background_buffer + ofs, count); 
+		memcpy(I_VideoBuffer + ofs, background_buffer + ofs, count);
     }
 } 
 

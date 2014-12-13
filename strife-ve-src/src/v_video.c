@@ -92,7 +92,7 @@ void V_MarkRect(int x, int y, int width, int height)
     {
         M_AddToBox (dirtybox, x, y); 
         M_AddToBox (dirtybox, x + width-1, y + height-1); 
-    }
+	}
 } 
  
 
@@ -215,13 +215,13 @@ void V_DrawPatch(int x, int y, patch_t *patch)
             count = column->length;
 
             while (count--)
-            {
-                *dest = *source++;
+			{
+				*dest = *source++;
                 dest += SCREENWIDTH;
             }
             column = (column_t *)((byte *)column + column->length + 4);
         }
-    }
+	}
 }
 
 //
@@ -539,7 +539,7 @@ void V_LoadXlaTable(void)
 //
 
 void V_DrawBlock(int x, int y, int width, int height, byte *src) 
-{ 
+{
     byte *dest; 
  
 #ifdef RANGECHECK 
@@ -568,7 +568,7 @@ void V_DrawBlock(int x, int y, int width, int height, byte *src)
 	memcpy (dest, src, width); 
 	src += width; 
 	dest += SCREENWIDTH; 
-    } 
+	}
 } 
 
 void V_DrawFilledBox(int x, int y, int w, int h, int c)
@@ -596,7 +596,7 @@ void V_DrawFilledBox(int x, int y, int w, int h, int c)
     {
         RB_BlitBlock(x, y, w, h, data, 0xff);
         return;
-    }
+	}
 }
 
 void V_DrawHorizLine(int x, int y, int w, int c)
@@ -617,7 +617,7 @@ void V_DrawHorizLine(int x, int y, int w, int c)
     {
         RB_BlitBlock(x, y, w, 1, data, 0xff);
         return;
-    }
+	}
 }
 
 void V_DrawVertLine(int x, int y, int h, int c)
@@ -639,7 +639,7 @@ void V_DrawVertLine(int x, int y, int h, int c)
     {
         RB_BlitBlock(x, y, 1, h, data, 0xff);
         return;
-    }
+	}
 }
 
 void V_DrawBox(int x, int y, int w, int h, int c)
@@ -681,7 +681,7 @@ void V_UseBuffer(byte *buffer)
 
 void V_RestoreBuffer(void)
 {
-    dest_screen = I_VideoBuffer;
+	dest_screen = I_VideoBuffer;
 }
 
 //
@@ -967,27 +967,27 @@ void V_ScreenShot(char *format)
 #ifdef HAVE_LIBPNG
         if(png_screenshots)
         {
-            WritePNGfile(lbmname, I_VideoBuffer,
+			WritePNGfile(lbmname, I_VideoBuffer,
                 SCREENWIDTH, SCREENHEIGHT,
-                W_CacheLumpName (DEH_String("PLAYPAL"), PU_CACHE));
+				W_CacheLumpName (DEH_String("PLAYPAL"), PU_CACHE));
         }
         else
 #endif
         {
             // save the pcx file
-            WritePCXfile(lbmname, I_VideoBuffer,
+			WritePCXfile(lbmname, I_VideoBuffer,
                 SCREENWIDTH, SCREENHEIGHT,
-                W_CacheLumpName (DEH_String("PLAYPAL"), PU_CACHE));
+				W_CacheLumpName (DEH_String("PLAYPAL"), PU_CACHE));
         }
     }
     else
     {
-        SDL_Surface *screen = SDL_GetVideoSurface();
+		/*SDL_Surface *screen = SDL_GetVideoSurface();
         byte *data = RB_GetScreenBufferData();
 
-        WriteHiResPNG(lbmname, data, screen->w, screen->h);
+		WriteHiResPNG(lbmname, data, screen->w, screen->h);
 
-        Z_Free(data);
+		Z_Free(data);*/
     }
 }
 

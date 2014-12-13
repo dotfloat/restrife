@@ -237,7 +237,7 @@ static void SetInputData(byte *screen, SDL_Color *palette)
     s = (byte *) unscaled_data;
     for (i = 0; i < SCREENWIDTH * SCREENHEIGHT; ++i)
     {
-        c = &palette[screen[i]];
+		c = &palette[screen[i]];
         *s++ = c->r;
         *s++ = c->g;
         *s++ = c->b;

@@ -1045,135 +1045,17 @@ static default_t extra_defaults_list[] =
 
     CONFIG_VARIABLE_INT(joystick_index),
 
-    //!
-    // Joystick axis to use to for horizontal (X) movement.
-    //
+	//!
+	// If non-zero, swap the left and right sticks.
+	//
 
-    CONFIG_VARIABLE_INT(joystick_x_axis),
-
-    //!
-    // If non-zero, movement on the horizontal joystick axis is inverted.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_x_invert),
+	CONFIG_VARIABLE_INT(joystick_southpaw),
 
     //!
-    // Joystick axis to use to for vertical (Y) movement.
+	// If non-zero, invert movement on the Y look axis.
     //
 
-    CONFIG_VARIABLE_INT(joystick_y_axis),
-
-    //!
-    // If non-zero, movement on the vertical joystick axis is inverted.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_y_invert),
-
-    //!
-    // Joystick axis to use to for strafing movement.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_strafe_axis),
-
-    //!
-    // If non-zero, movement on the joystick axis used for strafing
-    // is inverted.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_strafe_invert),
-
-    //!
-    // [SVE] svillarreal - Joystick axis to use to for looking
-    //
-
-    CONFIG_VARIABLE_INT(joystick_look_axis),
-
-    //!
-    // [SVE] svillarreal - If non-zero, movement on the joystick axis used for looking
-    // is inverted.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_look_invert),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #0.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button0),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #1.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button1),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #2.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button2),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #3.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button3),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #4.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button4),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #5.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button5),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #6.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button6),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #7.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button7),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #8.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button8),
-
-    //!
-    // The physical joystick button that corresponds to joystick
-    // virtual button #9.
-    //
-
-    CONFIG_VARIABLE_INT(joystick_physical_button9),
-
-    // [SVE]
-    // If you ask me this is totally braindead. EE supports practically
-    // unlimited joybuttons and never does anything remotely like this.
-
-    CONFIG_VARIABLE_INT(joystick_physical_button10),
-    CONFIG_VARIABLE_INT(joystick_physical_button11),
-    CONFIG_VARIABLE_INT(joystick_physical_button12),
-    CONFIG_VARIABLE_INT(joystick_physical_button13),
-    CONFIG_VARIABLE_INT(joystick_physical_button14),
+	CONFIG_VARIABLE_INT(joystick_invert),
 
     //!
     // Joystick virtual button to make the player strafe left.

@@ -812,10 +812,13 @@ void FE_CmdLobbyList(void)
 void FE_ClientCheckForGameStart(void)
 {
     // not in lobby, or already starting?
-    if(!feInLobby || net_SteamGame)
+    if(!feInLobby)
         return;
 
 #ifdef _USE_STEAM_
+    if (net_SteamGame)
+        return;
+
     // not for server
     if(I_SteamLobbyUserIsOwner())
         return;
@@ -836,10 +839,13 @@ void FE_ClientCheckForGameStart(void)
 // "startgame" command, run by the server user to start the game
 void FE_CmdStartGame(void)
 {
-    if(!feInLobby || net_SteamGame)
+    if(!feInLobby)
         return;
 
 #ifdef _USE_STEAM_
+    if (net_SteamGame)
+        return;
+
     net_SteamGame     = true;
     net_SteamNodeType = NET_STEAM_SERVER;
     net_SteamNumNodes = I_SteamServerGetClientsFromLobby(); // record clients from lobby

@@ -48,9 +48,8 @@ static void RB_SetupMatrices(rbView_t *view, const float fov)
     SDL_Surface *screen;
     matrix transform;
 
-    // setup projection matrix
-    screen = SDL_GetVideoSurface();
-    MTX_ViewFrustum(view->projection, (float)screen->w, (float)screen->h, fov, Z_NEAR);
+	// setup projection matrix
+	MTX_ViewFrustum(view->projection, (float)screen_width, (float)screen_height, fov, Z_NEAR);
 
     // setup rotation matrix
     // start off with the matrix on it's z-axis and then rotate it along the x-axis
@@ -106,9 +105,8 @@ static void RB_SetupClipper(rbView_t *view, const float fov)
     float aspect;
     float expand;
     
-    // get screen aspect ratio
-    screen = SDL_GetVideoSurface();
-    aspect = (float)screen->w / (float)screen->h;
+	// get screen aspect ratio
+	aspect = (float)screen_width / (float)screen_height;
     
     // anything other than center pitch will add additional span for the clip range.
     // higher the fov, the more wider span is applied. this will always be
@@ -165,11 +163,10 @@ static void RB_SetupView(player_t *player, rbView_t *view, const float fov)
 
     // adjust viewport to match the resizing screen
     if(viewheight != SCREENHEIGHT)
-    {
-        SDL_Surface *screen = SDL_GetVideoSurface();
-        float delta = (float)screen->h / ((float)SCREENHEIGHT / 16.0f);
+	{
+		float delta = (float)screen_height / ((float)SCREENHEIGHT / 16.0f);
 
-        dglViewport(0, delta, screen->w, screen->h);
+		dglViewport(0, delta, screen_width, screen_height);
     }
 
     view->x = FIXED2FLOAT(viewx);

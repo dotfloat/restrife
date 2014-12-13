@@ -735,18 +735,17 @@ static int             curModeNum;
 //
 static void FE_BuildModeList(void)
 {
-    int i;
-    SDL_Rect **modes;
+	int i, j;
+	SDL_DisplayMode mode, prevmode = { 0 };
     boolean curModeInList = false;
     static boolean modesBuilt;
-    int numModesAlloc;
+	int numModesAlloc;
+	int numDispModes;
 
     if(modesBuilt)
         return;
-    
-    modes = SDL_ListModes(NULL, SDL_FULLSCREEN);
 
-    if(!modes || modes == (SDL_Rect **)-1 || !modes[0])
+	if(!(numDispModes = SDL_GetNumDisplayModes(0)))
     {
         char buf[32];
         
@@ -764,19 +763,24 @@ static void FE_BuildModeList(void)
         modeStrings[1] = M_Strdup(buf);
         curModeNum = 1;
 
-
         modesBuilt = true;
         return;
     }
 
     // count modes, and check if current mode is in list
-    for(i = 0; modes[i]; i++)
-    {
-        ++numModes;
-        if(screen_width == modes[i]->w && screen_height == modes[i]->h)
+	for(i = 0; i < numDispModes; i++)
+	{
+		SDL_GetDisplayMode(0, i, &mode);
+
+		if (mode.w == prevmode.w && mode.h == prevmode.h)
+			continue;
+		prevmode = mode;
+
+		++numModes;
+		if(screen_width == mode.w && screen_height == mode.h)
         {
             curModeInList = true;
-        }
+		}
     }
 
     numModesAlloc = numModes + !curModeInList;
@@ -784,19 +788,29 @@ static void FE_BuildModeList(void)
     modeStrings = Z_Calloc(numModesAlloc, sizeof(*modeStrings), PU_STATIC, NULL);
     modeStructs = Z_Calloc(numModesAlloc, sizeof(*modeStructs), PU_STATIC, NULL);
 
-    for(i = 0; i < numModes; i++)
+	prevmode.w = prevmode.h = 0;
+	for(i = j = 0; i < numDispModes; i++)
     {
-        char buf[32];
-        int modeIdx = numModes - (i + 1);
+		char buf[32];
+		int modeIdx;
 
-        modeStructs[i].w = modes[modeIdx]->w;
-        modeStructs[i].h = modes[modeIdx]->h;
+		SDL_GetDisplayMode(0, i, &mode);
+		if (mode.w == prevmode.w && mode.h == prevmode.h)
+			continue;
+		prevmode = mode;
 
-        M_snprintf(buf, sizeof(buf), "%dx%d", modes[modeIdx]->w, modes[modeIdx]->h);
-        modeStrings[i] = M_Strdup(buf);
+		modeIdx = numModes - (j + 1);
 
-        if(screen_width == modes[modeIdx]->w && screen_height == modes[modeIdx]->h)
-            curModeNum = i;
+		modeStructs[modeIdx].w = mode.w;
+		modeStructs[modeIdx].h = mode.h;
+
+		M_snprintf(buf, sizeof(buf), "%dx%d", mode.w, mode.h);
+		modeStrings[modeIdx] = M_Strdup(buf);
+
+		if(screen_width == mode.w && screen_height == mode.h)
+			curModeNum = modeIdx;
+
+		j++;
     }
 
     if(!curModeInList)
@@ -812,7 +826,7 @@ static void FE_BuildModeList(void)
         curModeNum = numModes - 1;
     }
 
-    modesBuilt = true;
+	modesBuilt = true;
 }
 
 //

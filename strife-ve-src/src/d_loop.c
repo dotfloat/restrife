@@ -339,11 +339,13 @@ static void BlockUntilStart(net_gamesettings_t *settings,
             I_Error("Netgame startup aborted.");
         }
 
+#ifdef _USE_STEAM_
         // haleyjd 20141023: [SVE] If playing a Steam netgame, put on a show that
         // matches what's happening on the server side. Graphics are already 
         // initialized vis-a-vis the frontend lobby bringing us here.
         if(net_SteamGame)
             NET_RenderSteamServerStart();
+#endif
 
         I_Sleep(100);
     }

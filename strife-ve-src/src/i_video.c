@@ -153,9 +153,11 @@ char *video_driver = "";
 
 static char *window_position = "center";
 
-// SDL surface for the screen.
+// SDL window context
 
-static SDL_Surface *screen;
+SDL_Window *window;
+static SDL_GLContext *glcontext;
+static SDL_Renderer *renderer;
 
 // Window title
 
@@ -165,11 +167,12 @@ static char *window_title = "";
 // This is used when we are rendering in 32-bit screen mode.
 // When in a real 8-bit screen mode, screenbuffer == screen.
 
+static SDL_Texture *screentexture = NULL;
 static SDL_Surface *screenbuffer = NULL;
 
 // palette
 
-static SDL_Color palette[256];
+static SDL_Palette *palette = NULL;
 static boolean palette_to_set;
 
 // display has been set up?
@@ -194,10 +197,6 @@ int novert = 0;
 // Save screenshots in PNG format.
 
 int png_screenshots = 0;
-
-// if true, I_VideoBuffer is screen->pixels
-
-static boolean native_surface;
 
 // Screen width and height, from configuration file.
 
@@ -330,12 +329,12 @@ static boolean MouseShouldBeGrabbed()
     // never grab the mouse when in screensaver mode
    
     if (screensaver_mode)
-        return false;
+		return false;
 
     // if the window doesn't have focus, never grab it
 
     if (!window_focused)
-        return false;
+		return false;
 
     // always grab the mouse when full screen (dont want to 
     // see the mouse pointer)
@@ -403,18 +402,20 @@ void I_DisplayFPSDots(boolean dots_on)
 
 static void UpdateFocus(void)
 {
-    Uint8 state;
+	Uint32 state;
 
-    state = SDL_GetAppState();
+	state = SDL_GetWindowFlags(window);
 
     // We should have input (keyboard) focus and be visible 
     // (not minimized)
 
-    window_focused = (state & SDL_APPINPUTFOCUS) && (state & SDL_APPACTIVE);
+	window_focused = (state & SDL_WINDOW_INPUT_FOCUS) && (state & SDL_WINDOW_SHOWN);
+
+	printf("state: %x\n", state);
 
     // Should the screen be grabbed?
 
-    screenvisible = (state & SDL_APPACTIVE) != 0;
+	screenvisible = (state & SDL_WINDOW_SHOWN) != 0;
 }
 
 // Show or hide the mouse cursor. We have to use different techniques
@@ -437,14 +438,14 @@ void I_SetShowCursor(boolean show)
         SDL_SetCursor(cursors[0]);
     }
 #else
-    SDL_ShowCursor(show && !show_visual_cursor);
+	//SDL_ShowCursor(show && !show_visual_cursor);
 #endif
 
     // When the cursor is hidden, grab the input.
 
     if (!screensaver_mode)
-    {
-        SDL_WM_GrabInput(!show);
+	{
+		SDL_SetWindowGrab(window, !show);
     }
 }
 
@@ -467,12 +468,9 @@ void I_EnableLoadingDisk(void)
     patch_t *disk;
     byte *tmpbuf;
     char *disk_name;
-    int y;
-    char buf[20];
+	int y;
 
-    SDL_VideoDriverName(buf, 15);
-
-    if (!strcmp(buf, "Quartz"))
+	if (!strcmp(SDL_GetVideoDriver(0), "Quartz"))
     {
         // MacOS Quartz gives us pageflipped graphics that screw up the 
         // display when we use the loading disk.  Disable it.
@@ -520,7 +518,7 @@ void I_EnableLoadingDisk(void)
 //
 // [SVE]: Externalized (needed in frontend)
 //
-int TranslateKey(SDL_keysym *sym)
+int TranslateKey(SDL_Keysym *sym)
 {
     switch(sym->sym)
     {
@@ -543,7 +541,7 @@ int TranslateKey(SDL_keysym *sym)
       case SDLK_F10:	return KEY_F10;
       case SDLK_F11:	return KEY_F11;
       case SDLK_F12:	return KEY_F12;
-      case SDLK_PRINT:  return KEY_PRTSCR;
+	  case SDLK_PRINTSCREEN:  return KEY_PRTSCR;
 
       case SDLK_BACKSPACE: return KEY_BACKSPACE;
       case SDLK_DELETE:	return KEY_DEL;
@@ -573,19 +571,19 @@ int TranslateKey(SDL_keysym *sym)
         return KEY_RALT;
 
       case SDLK_CAPSLOCK: return KEY_CAPSLOCK;
-      case SDLK_SCROLLOCK: return KEY_SCRLCK;
-      case SDLK_NUMLOCK: return KEY_NUMLOCK;
+	  case SDLK_SCROLLLOCK: return KEY_SCRLCK;
+	  case SDLK_NUMLOCKCLEAR: return KEY_NUMLOCK;
 
-      case SDLK_KP0: return KEYP_0;
-      case SDLK_KP1: return KEYP_1;
-      case SDLK_KP2: return KEYP_2;
-      case SDLK_KP3: return KEYP_3;
-      case SDLK_KP4: return KEYP_4;
-      case SDLK_KP5: return KEYP_5;
-      case SDLK_KP6: return KEYP_6;
-      case SDLK_KP7: return KEYP_7;
-      case SDLK_KP8: return KEYP_8;
-      case SDLK_KP9: return KEYP_9;
+	  case SDLK_KP_0: return KEYP_0;
+	  case SDLK_KP_1: return KEYP_1;
+	  case SDLK_KP_2: return KEYP_2;
+	  case SDLK_KP_3: return KEYP_3;
+	  case SDLK_KP_4: return KEYP_4;
+	  case SDLK_KP_5: return KEYP_5;
+	  case SDLK_KP_6: return KEYP_6;
+	  case SDLK_KP_7: return KEYP_7;
+	  case SDLK_KP_8: return KEYP_8;
+	  case SDLK_KP_9: return KEYP_9;
 
       case SDLK_KP_PERIOD:   return KEYP_PERIOD;
       case SDLK_KP_MULTIPLY: return KEYP_MULTIPLY;
@@ -760,7 +758,7 @@ static int GetTypedChar(SDL_Event *event)
     {
         // Unicode value, from key layout.
 
-        return tolower(event->key.keysym.unicode);
+		return tolower(event->key.keysym.sym);
     }
 }
 
@@ -793,13 +791,9 @@ static void UpdateShiftStatus(SDL_Event *event)
 //
 void I_GetAbsoluteMousePosition(int *x, int *y)
 {
-    SDL_Surface *display = SDL_GetVideoSurface();
-    int w = display->w;
-    int h = display->h;
+	int w = screen_width;
+	int h = screen_height;
     fixed_t aspectRatio = w * FRACUNIT / h;
-
-    if(!display)
-        return;
 
     SDL_PumpEvents();
     SDL_GetMouseState(x, y);
@@ -918,18 +912,14 @@ void I_GetEvent(void)
                 break;
 
             case SDL_QUIT:
-                event.type = ev_quit;
-                D_PostEvent(&event);
+				//event.type = ev_quit;
+				//D_PostEvent(&event);
+			exit(0);
                 break;
 
-            case SDL_ACTIVEEVENT:
-                // need to update our focus state
-                UpdateFocus();
-                break;
-
-            case SDL_VIDEOEXPOSE:
-                palette_to_set = true;
-                break;
+			case SDL_WINDOWEVENT:
+				UpdateFocus();
+				break;
 
                 // [SVE] svillarreal - this is a huge hassle to support with
                 // the OpenGL context
@@ -948,24 +938,6 @@ void I_GetEvent(void)
     }
 }
 
-// Warp the mouse back to the middle of the screen
-
-static void CenterMouse(void)
-{
-    // Warp the the screen center
-
-    SDL_WarpMouse(screen->w / 2, screen->h / 2);
-
-    // Clear any relative movement caused by warping
-
-    SDL_PumpEvents();
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-    SDL_GetRelativeMouseState(0, NULL, NULL);
-#else
-    SDL_GetRelativeMouseState(NULL, NULL);
-#endif
-}
-
 //
 // Read the change in mouse state to generate mouse motion events
 //
@@ -977,11 +949,7 @@ static void I_ReadMouse(void)
     int x, y;
     event_t ev;
 
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-    SDL_GetRelativeMouseState(0, &x, &y);
-#else
-    SDL_GetRelativeMouseState(&x, &y);
-#endif
+	SDL_GetRelativeMouseState(&x, &y);
 
     if (x != 0 || y != 0) 
     {
@@ -1010,7 +978,7 @@ static void I_ReadMouse(void)
 
     if (MouseShouldBeGrabbed())
     {
-        CenterMouse();
+		//CenterMouse();
     }
 }
 
@@ -1067,22 +1035,15 @@ static void UpdateGrab(void)
         I_SetShowCursor(false);
     }
     else if (grab && !currently_grabbed)
-    {
-        I_SetShowCursor(false);
-        CenterMouse();
+	{
+		SDL_SetRelativeMouseMode(SDL_TRUE);
+		I_SetShowCursor(false);
     }
     else if (!grab && currently_grabbed)
     {
+		SDL_SetRelativeMouseMode(SDL_FALSE);
         I_SetShowCursor(true);
 
-        // When releasing the mouse from grab, warp the mouse cursor to
-        // the bottom-right of the screen. This is a minimally distracting
-        // place for it to appear - we may only have released the grab
-        // because we're at an end of level intermission screen, for
-        // example.
-
-        if(MouseShouldBeWarped()) // [SVE]: done conditionally.
-            SDL_WarpMouse(screen->w - 16, screen->h - 16);
         SDL_GetRelativeMouseState(NULL, NULL);
     }
 
@@ -1090,120 +1051,76 @@ static void UpdateGrab(void)
 
 }
 
-// Update a small portion of the screen
-//
-// Does stretching and buffer blitting if neccessary
-//
-// Return true if blit was successful.
-
-static boolean BlitArea(int x1, int y1, int x2, int y2)
-{
-    int x_offset, y_offset;
-    boolean result;
-
-    // No blit needed on native surface
-
-    if (native_surface)
-    {
-	return true;
-    }
-
-    x_offset = (screenbuffer->w - screen_mode->width) / 2;
-    y_offset = (screenbuffer->h - screen_mode->height) / 2;
-
-    if (SDL_LockSurface(screenbuffer) >= 0)
-    {
-        I_InitScale(I_VideoBuffer,
-                    (byte *) screenbuffer->pixels
-                                + (y_offset * screenbuffer->pitch)
-                                + x_offset,
-                    screenbuffer->pitch);
-        result = screen_mode->DrawScreen(x1, y1, x2, y2);
-      	SDL_UnlockSurface(screenbuffer);
-    }
-    else
-    {
-        result = false;
-    }
-
-    return result;
-}
-
 static void UpdateRect(int x1, int y1, int x2, int y2)
 {
-    int x1_scaled, x2_scaled, y1_scaled, y2_scaled;
+	int x1_scaled, x2_scaled, y1_scaled, y2_scaled;
 
-    // Do stretching and blitting
+	// Update the area
 
-    if (BlitArea(x1, y1, x2, y2))
-    {
-        // Update the area
+	x1_scaled = (x1 * screen_mode->width) / SCREENWIDTH;
+	y1_scaled = (y1 * screen_mode->height) / SCREENHEIGHT;
+	x2_scaled = (x2 * screen_mode->width) / SCREENWIDTH;
+	y2_scaled = (y2 * screen_mode->height) / SCREENHEIGHT;
 
-        x1_scaled = (x1 * screen_mode->width) / SCREENWIDTH;
-        y1_scaled = (y1 * screen_mode->height) / SCREENHEIGHT;
-        x2_scaled = (x2 * screen_mode->width) / SCREENWIDTH;
-        y2_scaled = (y2 * screen_mode->height) / SCREENHEIGHT;
-
-        SDL_UpdateRect(screen,
-                       x1_scaled, y1_scaled,
-                       x2_scaled - x1_scaled,
-                       y2_scaled - y1_scaled);
-    }
+	/*SDL_UpdateRect(screen,
+				   x1_scaled, y1_scaled,
+				   x2_scaled - x1_scaled,
+				   y2_scaled - y1_scaled);*/
 }
 
 void I_BeginRead(void)
 {
-    byte *screenloc = I_VideoBuffer
-                    + (SCREENHEIGHT - LOADING_DISK_H) * SCREENWIDTH
-                    + (SCREENWIDTH - LOADING_DISK_W);
-    int y;
+	byte *screenloc = I_VideoBuffer
+					+ (SCREENHEIGHT - LOADING_DISK_H) * SCREENWIDTH
+					+ (SCREENWIDTH - LOADING_DISK_W);
+	int y;
 
-    // [SVE] svillarreal - from gl scale branch
-    if (!initialized || disk_image == NULL || using_opengl)
-        return;
+	// [SVE] svillarreal - from gl scale branch
+	if (!initialized || disk_image == NULL || using_opengl)
+		return;
 
-    // save background and copy the disk image in
+	// save background and copy the disk image in
 
-    for (y=0; y<LOADING_DISK_H; ++y)
-    {
-        memcpy(saved_background + y * LOADING_DISK_W,
-               screenloc,
-               LOADING_DISK_W);
-        memcpy(screenloc,
-               disk_image + y * LOADING_DISK_W,
-               LOADING_DISK_W);
+	for (y=0; y<LOADING_DISK_H; ++y)
+	{
+		memcpy(saved_background + y * LOADING_DISK_W,
+			   screenloc,
+			   LOADING_DISK_W);
+		memcpy(screenloc,
+			   disk_image + y * LOADING_DISK_W,
+			   LOADING_DISK_W);
 
-        screenloc += SCREENWIDTH;
-    }
+		screenloc += SCREENWIDTH;
+	}
 
-    UpdateRect(SCREENWIDTH - LOADING_DISK_W, SCREENHEIGHT - LOADING_DISK_H,
-               SCREENWIDTH, SCREENHEIGHT);
+	UpdateRect(SCREENWIDTH - LOADING_DISK_W, SCREENHEIGHT - LOADING_DISK_H,
+			   SCREENWIDTH, SCREENHEIGHT);
 }
 
 void I_EndRead(void)
 {
-    byte *screenloc = I_VideoBuffer
-                    + (SCREENHEIGHT - LOADING_DISK_H) * SCREENWIDTH
-                    + (SCREENWIDTH - LOADING_DISK_W);
-    int y;
+	byte *screenloc = I_VideoBuffer
+					+ (SCREENHEIGHT - LOADING_DISK_H) * SCREENWIDTH
+					+ (SCREENWIDTH - LOADING_DISK_W);
+	int y;
 
-    // [SVE] svillarreal - from gl scale branch
-    if (!initialized || disk_image == NULL || using_opengl)
-        return;
+	// [SVE] svillarreal - from gl scale branch
+	if (!initialized || disk_image == NULL || using_opengl)
+		return;
 
-    // save background and copy the disk image in
+	// save background and copy the disk image in
 
-    for (y=0; y<LOADING_DISK_H; ++y)
-    {
-        memcpy(screenloc,
-               saved_background + y * LOADING_DISK_W,
-               LOADING_DISK_W);
+	for (y=0; y<LOADING_DISK_H; ++y)
+	{
+		memcpy(screenloc,
+			   saved_background + y * LOADING_DISK_W,
+			   LOADING_DISK_W);
 
-        screenloc += SCREENWIDTH;
-    }
+		screenloc += SCREENWIDTH;
+	}
 
-    UpdateRect(SCREENWIDTH - LOADING_DISK_W, SCREENHEIGHT - LOADING_DISK_H,
-               SCREENWIDTH, SCREENHEIGHT);
+	UpdateRect(SCREENWIDTH - LOADING_DISK_W, SCREENHEIGHT - LOADING_DISK_H,
+			   SCREENWIDTH, SCREENHEIGHT);
 }
 
 // [SVE] svillarreal - from gl scale branch
@@ -1213,22 +1130,15 @@ static void FinishUpdateSoftware(void)
 {
     // draw to screen
 
-    BlitArea(0, 0, SCREENWIDTH, SCREENHEIGHT);
+	//BlitArea(0, 0, SCREENWIDTH, SCREENHEIGHT);
 
-    if (palette_to_set)
-    {
-        SDL_SetColors(screenbuffer, palette, 0, 256);
+	if (palette_to_set)
+	{
+		SDL_SetSurfacePalette(screenbuffer, palette);
         palette_to_set = false;
-
-        // In native 8-bit mode, if we have a palette to set, the act
-        // of setting the palette updates the screen
-
-        if (screenbuffer == screen)
-        {
-            return;
-        }
     }
 
+/*
     // In 8in32 mode, we must blit from the fake 8-bit screen buffer
     // to the real screen before doing a screen flip.
 
@@ -1244,7 +1154,12 @@ static void FinishUpdateSoftware(void)
         SDL_BlitSurface(screenbuffer, NULL, screen, &dst_rect);
     }
 
-    SDL_Flip(screen);
+	SDL_Flip(screen);*/
+
+	SDL_UpdateTexture(screentexture, NULL, I_VideoBuffer, 320);
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, screentexture, NULL, NULL);
+	SDL_RenderPresent(renderer);
 }
 
 //
@@ -1275,7 +1190,7 @@ void I_FinishUpdate (void)
     // Not doing this breaks under Windows when we alt-tab away 
     // while fullscreen.
 
-    if (!(SDL_GetAppState() & SDL_APPACTIVE))
+	if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_SHOWN))
         return;
 
     // draws little dots on the bottom of the screen
@@ -1287,10 +1202,10 @@ void I_FinishUpdate (void)
 	    lasttic = i;
 	    if (tics > 20) tics = 20;
 
-	    for (i=0 ; i<tics*4 ; i+=4)
+		for (i=0 ; i<tics*4 ; i+=4)
 	        I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0xff;
 	    for ( ; i<20*4 ; i+=4)
-	        I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
+			I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
     }
 
     // draw to screen
@@ -1301,7 +1216,7 @@ void I_FinishUpdate (void)
 
         if(!use3drenderer)
         {
-            I_GL_UpdateScreen(I_VideoBuffer, palette);
+			I_GL_UpdateScreen(I_VideoBuffer, palette->colors);
         }
         else
         {
@@ -1332,9 +1247,8 @@ void I_FinishUpdate (void)
 //
 void I_ReadScreen (byte* scr)
 {
-    memcpy(scr, I_VideoBuffer, SCREENWIDTH*SCREENHEIGHT);
+	memcpy(scr, I_VideoBuffer, SCREENWIDTH*SCREENHEIGHT);
 }
-
 
 //
 // I_SetPalette
@@ -1343,14 +1257,17 @@ void I_SetPalette (byte *doompalette)
 {
     int i;
 
+	if (palette == NULL)
+		palette = SDL_AllocPalette(256);
+
     for (i=0; i<256; ++i)
     {
         // Zero out the bottom two bits of each channel - the PC VGA
         // controller only supports 6 bits of accuracy.
 
-        palette[i].r = gammatable[usegamma][*doompalette++] & ~3;
-        palette[i].g = gammatable[usegamma][*doompalette++] & ~3;
-        palette[i].b = gammatable[usegamma][*doompalette++] & ~3;
+		palette->colors[i].r = gammatable[usegamma][*doompalette++] & ~3;
+		palette->colors[i].g = gammatable[usegamma][*doompalette++] & ~3;
+		palette->colors[i].b = gammatable[usegamma][*doompalette++] & ~3;
     }
 
     palette_to_set = true;
@@ -1367,9 +1284,9 @@ int I_GetPaletteIndex(int r, int g, int b)
 
     for (i = 0; i < 256; ++i)
     {
-        diff = (r - palette[i].r) * (r - palette[i].r)
-             + (g - palette[i].g) * (g - palette[i].g)
-             + (b - palette[i].b) * (b - palette[i].b);
+		diff = (r - palette->colors[i].r) * (r - palette->colors[i].r)
+			 + (g - palette->colors[i].g) * (g - palette->colors[i].g)
+			 + (b - palette->colors[i].b) * (b - palette->colors[i].b);
 
         if (diff < best_diff)
         {
@@ -1392,9 +1309,9 @@ int I_GetPaletteIndex(int r, int g, int b)
 
 void I_GetPaletteColor(byte *rgb, int index)
 {
-    rgb[0] = palette[index].r;
-    rgb[1] = palette[index].g;
-    rgb[2] = palette[index].b;
+	rgb[0] = palette->colors[index].r;
+	rgb[1] = palette->colors[index].g;
+	rgb[2] = palette->colors[index].b;
 }
 
 // 
@@ -1416,8 +1333,8 @@ void I_InitWindowTitle(void)
     // haleyjd 20140827: [SVE] hard coded title
     char *buf = "Strife: Veteran Edition";
 
-    //buf = M_StringJoin(window_title, " - ", PACKAGE_STRING, NULL);
-    SDL_WM_SetCaption(buf, NULL);
+	//buf = M_StringJoin(window_title, " - ", PACKAGE_STRING, NULL);
+	SDL_SetWindowTitle(window, buf);
     //free(buf);
 }
 
@@ -1454,7 +1371,7 @@ void I_InitWindowIcon(void)
                                        0xff << 16,
                                        0);
 
-    SDL_WM_SetIcon(surface, mask);
+	SDL_SetWindowIcon(window, surface);
     SDL_FreeSurface(surface);
     free(mask);
 }
@@ -1571,86 +1488,45 @@ static screen_mode_t *I_FindScreenMode(int w, int h)
 
 static boolean AutoAdjustFullscreen(void)
 {
-    SDL_Rect **modes;
-    SDL_Rect *best_mode;
+	SDL_DisplayMode mode, closest;
     screen_mode_t *screen_mode;
     int diff, best_diff;
-    int i;
+	int i;
 
-    modes = SDL_ListModes(NULL, SDL_FULLSCREEN);
-
-    // No fullscreen modes available at all?
-
-    if (modes == NULL || modes == (SDL_Rect **) -1 || *modes == NULL)
-    {
-        return false;
-    }
-    
     // [SVE]: On first time run, set desired res to best available res
     if(!screen_init && use3drenderer)
     {
-        screen_width  = default_screen_width  = modes[0]->w;
-        screen_height = default_screen_height = modes[0]->h;
+		SDL_GetDesktopDisplayMode(0, &mode);
+
+		screen_width  = default_screen_width  = mode.w;
+		screen_height = default_screen_height = mode.h;
         screen_init   = true;        // do not do this again
     }
 
     // Find the best mode that matches the mode specified in the
     // configuration file
 
-    best_mode = NULL;
-    best_diff = INT_MAX;
+	mode.w = screen_width;
+	mode.h = screen_height;
+	mode.driverdata = 0;
+	mode.format = 0;
+	mode.refresh_rate = 0;
 
-    for (i=0; modes[i] != NULL; ++i)
-    {
-        //printf("%ix%i?\n", modes[i]->w, modes[i]->h);
+	if (SDL_GetClosestDisplayMode(0, &mode, &closest) == NULL)
+	{
+		// Unable to find a valid mode!
 
-        // What screen_mode_t would be used for this video mode?
+		return false;
+	}
 
-        screen_mode = I_FindScreenMode(modes[i]->w, modes[i]->h);
+	if (screen_width != closest.w || screen_height != closest.h)
+	{
+		printf("I_InitGraphics: %ix%i mode not supported on this machine.\n",
+			   screen_width, screen_height);
+	}
 
-        // Never choose a screen mode that we cannot run in, or
-        // is poor quality for fullscreen
-
-        if (screen_mode == NULL || screen_mode->poor_quality)
-        {
-        //    printf("\tUnsupported / poor quality\n");
-            continue;
-        }
-
-        // Do we have the exact mode?
-        // If so, no autoadjust needed
-
-        if (screen_width == modes[i]->w && screen_height == modes[i]->h)
-        {
-        //    printf("\tExact mode!\n");
-            return true;
-        }
-
-        // Is this mode better than the current mode?
-
-        diff = (screen_width - modes[i]->w) * (screen_width - modes[i]->w)
-             + (screen_height - modes[i]->h) * (screen_height - modes[i]->h);
-
-        if (diff < best_diff)
-        {
-        //    printf("\tA valid mode\n");
-            best_mode = modes[i];
-            best_diff = diff;
-        }
-    }
-
-    if (best_mode == NULL)
-    {
-        // Unable to find a valid mode!
-
-        return false;
-    }
-
-    printf("I_InitGraphics: %ix%i mode not supported on this machine.\n",
-           screen_width, screen_height);
-
-    screen_width  = default_screen_width  = best_mode->w;
-    screen_height = default_screen_height = best_mode->h;
+	screen_width  = default_screen_width  = closest.w;
+	screen_height = default_screen_height = closest.h;
 
     return true;
 }
@@ -1688,7 +1564,7 @@ static void AutoAdjustWindowed(void)
 // Auto-adjust to a valid color depth.
 
 static void AutoAdjustColorDepth(void)
-{
+{/*
     SDL_Rect **modes;
     SDL_PixelFormat format;
     const SDL_VideoInfo *info;
@@ -1736,7 +1612,7 @@ static void AutoAdjustColorDepth(void)
         {
             screen_bpp = info->vfmt->BitsPerPixel;
         }
-    }
+	}*/
 }
 
 // If the video mode set in the configuration file is not available,
@@ -1755,17 +1631,17 @@ static void I_AutoAdjustSettings(void)
     AutoAdjustColorDepth();
 
     // If we are running fullscreen, try to autoadjust to a valid fullscreen
-    // mode.  If this is impossible, switch to windowed.
+	// mode.  If this is impossible, switch to windowed.
 
     if (fullscreen && !AutoAdjustFullscreen())
-    {
+	{
         fullscreen = default_fullscreen = 0;
-    }
+	}
 
     // If we are running windowed, pick a valid window size.
 
     if (!fullscreen)
-    {
+	{
         AutoAdjustWindowed();
     }
 
@@ -2101,9 +1977,9 @@ static void SetVideoMode(screen_mode_t *mode, int w, int h)
     // to free the screenbuffer surface before setting the new mode.
 
     // [SVE] svillarreal - from gl scale branch
-    if (!using_opengl && screenbuffer != NULL && screen != screenbuffer)
+	if (!using_opengl && screenbuffer != NULL)
     {
-        SDL_FreeSurface(screenbuffer);
+		SDL_DestroyTexture(screenbuffer);
     }
 
     // Generate lookup tables before setting the video mode.
@@ -2115,7 +1991,7 @@ static void SetVideoMode(screen_mode_t *mode, int w, int h)
 
     if (fullscreen)
     {
-        flags |= SDL_FULLSCREEN;
+		flags |= SDL_WINDOW_FULLSCREEN;
     }
     // [SVE] svillarreal - this is a huge hassle to support with
     // the OpenGL context
@@ -2137,43 +2013,36 @@ static void SetVideoMode(screen_mode_t *mode, int w, int h)
     // [SVE] svillarreal - from gl scale branch
     if (using_opengl)
     {
-        flags |= SDL_OPENGL;
+		flags |= SDL_WINDOW_OPENGL;
         screen_bpp = 32;
-    }
-    else
-    {
-        flags |= SDL_SWSURFACE | SDL_DOUBLEBUF;
+	}
 
-        if (screen_bpp == 8)
-        {
-            flags |= SDL_HWPALETTE;
-        }
-    }
+	window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, flags);
 
-    screen = SDL_SetVideoMode(w, h, screen_bpp, flags);
-
-    if (screen == NULL)
+	if (window == NULL)
     {
         I_Error("Error setting video mode %ix%ix%ibpp: %s\n",
                 w, h, screen_bpp, SDL_GetError());
-    }
-
-    // [SVE] svillarreal
-    DEH_printf("GL_Init: Initializing OpenGL extensions\n");
-    GL_Init();
-
-    DEH_printf("RB_Init: Initializing OpenGL render backend\n");
-    RB_Init();
+	}
 
     // [SVE] svillarreal - from gl scale branch
     if (using_opengl)
     {
+		glcontext = SDL_GL_CreateContext(window);
+
+		// [SVE] svillarreal
+		DEH_printf("GL_Init: Initializing OpenGL extensions\n");
+		GL_Init();
+
+		DEH_printf("RB_Init: Initializing OpenGL render backend\n");
+		RB_Init();
+
         // Try to initialize OpenGL scaling backend. This can fail,
         // because we need an OpenGL context before we can find out
         // if we have all the extensions that we need to make it work.
         // If it does, then fall back to software mode instead.
 
-        if (!I_GL_InitScale(screen->w, screen->h))
+		if (!I_GL_InitScale(w, h))
         {
             fprintf(stderr,
                     "Failed to initialize in OpenGL mode. "
@@ -2189,22 +2058,24 @@ static void SetVideoMode(screen_mode_t *mode, int w, int h)
     }
     else
     {
+		renderer = SDL_CreateRenderer(window, -1, flags);
+
         // Blank out the full screen area in case there is any junk in
         // the borders that won't otherwise be overwritten.
 
-        SDL_FillRect(screen, NULL, 0);
+		SDL_RenderClear(renderer);
 
         // If mode was not set, it must be set now that we know the
         // screen size.
 
         if (mode == NULL)
         {
-            mode = I_FindScreenMode(screen->w, screen->h);
+			mode = I_FindScreenMode(w, h);
 
             if (mode == NULL)
             {
                 I_Error("I_InitGraphics: Unable to find a screen mode small "
-                        "enough for %ix%i", screen->w, screen->h);
+						"enough for %ix%i", w, h);
             }
 
             // Generate lookup tables before setting the video mode.
@@ -2219,21 +2090,14 @@ static void SetVideoMode(screen_mode_t *mode, int w, int h)
 
         screen_mode = mode;
 
-        // Create the screenbuffer surface; if we have a real 8-bit palettized
-        // screen, then we can use the screen as the screenbuffer.
+		screentexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX8,
+										  SDL_TEXTUREACCESS_STREAMING,
+										  mode->width,
+										  mode->height);
 
-        if (screen->format->BitsPerPixel == 8)
-        {
-            screenbuffer = screen;
-        }
-        else
-        {
-            screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE,
-                                                mode->width, mode->height, 8,
-                                                0, 0, 0, 0);
-
-            SDL_FillRect(screenbuffer, NULL, 0);
-        }
+		screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE,
+											mode->width, mode->height, 8,
+											0, 0, 0, 0);
     }
 }
 
@@ -2372,20 +2236,13 @@ void I_InitGraphics(void)
     doompal = W_CacheLumpName(DEH_String("PLAYPAL"), PU_CACHE);
     I_SetPalette(doompal);
 
-    if (!using_opengl)
-    {
-        SDL_SetColors(screenbuffer, palette, 0, 256);
-
-        // Start with a clear black screen
-        // (screen will be flipped after we set the palette)
-
-        SDL_FillRect(screenbuffer, NULL, 0);
-    }
-
     CreateCursors();
 
     UpdateFocus();
     UpdateGrab();
+
+	I_VideoBuffer = Z_Malloc(SCREENWIDTH * SCREENHEIGHT,
+							 PU_STATIC, NULL);
 
     // On some systems, it takes a second or so for the screen to settle
     // after changing modes.  We include the option to add a delay when
@@ -2397,48 +2254,11 @@ void I_InitGraphics(void)
         SDL_Delay(startup_delay);
     }
 
-    // Check if we have a native surface we can use
-    // If we have to lock the screen, draw to a buffer and copy
-    // Likewise if the screen pitch is not the same as the width
-    // If we have to multiply, drawing is done to a separate 320x200 buf
-
-    native_surface = !using_opengl
-                  && screen == screenbuffer
-                  && !SDL_MUSTLOCK(screen)
-                  && screen_mode == &mode_scale_1x
-                  && screen->pitch == SCREENWIDTH
-                  && aspect_ratio_correct;
-
-    // If not, allocate a buffer and copy from that buffer to the
-    // screen when we do an update
-
-    if (native_surface)
-    {
-	I_VideoBuffer = (unsigned char *) screen->pixels;
-
-        I_VideoBuffer += (screen->h - SCREENHEIGHT) / 2;
-    }
-    else
-    {
-	I_VideoBuffer = (unsigned char *) Z_Malloc(SCREENWIDTH * SCREENHEIGHT,
-                                                   PU_STATIC, NULL);
-    }
-
     V_RestoreBuffer();
 
     // Clear the screen to black.
 
-    memset(I_VideoBuffer, 0, SCREENWIDTH * SCREENHEIGHT);
-
-    // We need SDL to give us translated versions of keys as well
-
-    SDL_EnableUNICODE(1);
-
-    // Repeat key presses - this is what Vanilla Doom does
-    // Not sure about repeat rate - probably dependent on which DOS
-    // driver is used.  This is good enough though.
-
-    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+	SDL_RenderClear(renderer);
 
     // Clear out any events waiting at the start:
 

@@ -18,6 +18,7 @@
 
 #include "doomtype.h"
 #include "doomkeys.h"
+#include "i_joystick.h"
 
 #include "m_config.h"
 #include "m_misc.h"
@@ -179,35 +180,35 @@ int key_menu_screenshot = 0;
 // Joystick controls
 //
 
-int joybfire = 0;
-int joybstrafe = 1;
-int joybuse = 3;
-int joybspeed = 2;
+int joybfire = JOY_PBUTTON_RIGHTTRIGGER;
+int joybstrafe = -1;
+int joybuse = JOY_BUTTON_Y;
+int joybspeed = JOY_PBUTTON_LEFTTRIGGER;
 
 int joybstrafeleft = -1;
 int joybstraferight = -1;
 
-int joybjump = -1;
+int joybjump = JOY_BUTTON_A;
 
-int joybprevweapon = -1;
-int joybnextweapon = -1;
+int joybprevweapon = JOY_BUTTON_LEFTSHOULDER;
+int joybnextweapon = JOY_BUTTON_RIGHTSHOULDER;
 
 // [SVE] svillarreal - much needed joy buttons for menus
-int joybmenu           = 4;
-int joybmenu_up        = 0;
-int joybmenu_down      = 1;
-int joybmenu_left      = 2;
-int joybmenu_right     = 3;
-int joybmenu_back      = 5;
-int joybmenu_forward   = 10;
-int joybmenu_confirm   = 4;
-int joybmenu_abort     = 5;
+int joybmenu           = JOY_BUTTON_START;
+int joybmenu_up        = JOY_BUTTON_DPAD_UP;
+int joybmenu_down      = JOY_BUTTON_DPAD_DOWN;
+int joybmenu_left      = JOY_BUTTON_DPAD_LEFT;
+int joybmenu_right     = JOY_BUTTON_DPAD_RIGHT;
+int joybmenu_back      = JOY_BUTTON_B;
+int joybmenu_forward   = JOY_BUTTON_A;
+int joybmenu_confirm   = JOY_BUTTON_A;
+int joybmenu_abort     = JOY_BUTTON_B;
 
 // [SVE] svillarreal
-int joybinvleft = -1;
-int joybinvright = -1;
-int joybinvuse = -1;
-int joybinvdrop = -1;
+int joybinvleft = JOY_BUTTON_DPAD_LEFT;
+int joybinvright = JOY_BUTTON_DPAD_RIGHT;
+int joybinvuse = JOY_BUTTON_DPAD_UP;
+int joybinvdrop = JOY_BUTTON_DPAD_DOWN;
 int joybcenterview = -1;
 int joybmission = -1;
 int joybinvpop = -1;
@@ -220,7 +221,7 @@ int joybmap_east      = -1;
 int joybmap_west      = -1;
 int joybmap_zoomin    = -1;
 int joybmap_zoomout   = -1;
-int joybmap_toggle    = -1;
+int joybmap_toggle    = JOY_BUTTON_SELECT;
 int joybmap_maxzoom   = -1;
 int joybmap_follow    = -1;
 int joybmap_mark      = -1;

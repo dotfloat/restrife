@@ -40,7 +40,6 @@ static int          maxTextureSize;
 static int          maxColorAttachments;
 static float        maxAnisotropic;
 static boolean      bIsInit;
-static SDL_Surface  *screen;
 
 static boolean      bPrintStats;
 
@@ -56,8 +55,6 @@ rbState_t rbState;
 
 void RB_Init(void)
 {
-    screen = SDL_GetVideoSurface();
-
     gl_vendor = (const char*)dglGetString(GL_VENDOR);
     gl_renderer = (const char*)dglGetString(GL_RENDERER);
     gl_version = (const char*)dglGetString(GL_VERSION);
@@ -150,7 +147,7 @@ void RB_InitDefaultState(void)
 
 void RB_ResetViewPort(void)
 {
-    dglViewport(0, 0, screen->w, screen->h);
+	dglViewport(0, 0, screen_width, screen_height);
 }
 
 //
@@ -327,6 +324,8 @@ angle_t RB_PointToBam(fixed_t x, fixed_t y)
 // RB_SwapBuffers
 //
 
+extern SDL_Window *window;
+
 void RB_SwapBuffers(void)
 {
     if(bPrintStats)
@@ -347,7 +346,7 @@ void RB_SwapBuffers(void)
         dglFinish();
     }
 
-    SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow(window);
 
     // reset debugging info
     rbState.numStateChanges = 0;
@@ -777,7 +776,7 @@ void RB_SetTextureUnit(int unit)
 
 void RB_SetScissorRect(const int x, const int y, const int w, const int h)
 {
-    dglScissor(x, screen->h - y, w, h);
+	dglScissor(x, screen_height - y, w, h);
 }
 
 //
